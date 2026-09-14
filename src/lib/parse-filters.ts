@@ -21,3 +21,13 @@ export function parseFilters(params: URLSearchParams): IcpFilters {
     pageSize: num("pageSize"),
   };
 }
+
+/** Inverse of parseFilters — for building query strings on the client. */
+export function serializeFilters(filters: IcpFilters): string {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value == null || value === "") return;
+    params.set(key, Array.isArray(value) ? value.join(",") : String(value));
+  });
+  return params.toString();
+}

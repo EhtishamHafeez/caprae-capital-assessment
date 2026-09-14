@@ -12,6 +12,7 @@ interface Props {
   sortBy: IcpFilters["sortBy"];
   sortDir: IcpFilters["sortDir"];
   onSort: (col: NonNullable<IcpFilters["sortBy"]>) => void;
+  emptyMessage?: string;
 }
 
 function SortHeader({ label, col, sortBy, sortDir, onSort }: {
@@ -33,18 +34,27 @@ function SortHeader({ label, col, sortBy, sortDir, onSort }: {
   );
 }
 
-export function LeadsTable({ leads, savedIds, onToggleSave, onOpenDetail, sortBy, sortDir, onSort }: Props) {
+export function LeadsTable({
+  leads,
+  savedIds,
+  onToggleSave,
+  onOpenDetail,
+  sortBy,
+  sortDir,
+  onSort,
+  emptyMessage = "No leads match your current filters. Try widening your target profile.",
+}: Props) {
   if (!leads.length) {
     return (
       <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-300 py-24 text-sm text-slate-500">
-        No leads match your current filters. Try widening your target profile.
+        {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table className="w-full min-w-[860px] text-left text-sm">
         <thead className="border-b border-slate-200 bg-slate-50">
           <tr>
             <th className="px-4 py-3"><SortHeader label="Company" col="name" sortBy={sortBy} sortDir={sortDir} onSort={onSort} /></th>
