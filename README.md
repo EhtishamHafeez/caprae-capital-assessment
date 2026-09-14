@@ -95,6 +95,20 @@ This overwrites `data/leads.csv`. Delete `data/app.db` afterward to force a re-s
 | `npm run build` | Production build |
 | `npm start` | Run the production build |
 | `npm run lint` | ESLint |
+| `npm test` | Run the test suite once |
+| `npm run test:watch` | Run tests in watch mode |
+
+## Testing
+
+42 tests (Vitest) covering the logic that's actually risky to get wrong:
+
+- **`scoring.test.ts`** — every component of the ICP-fit scoring engine (industry/revenue/employee fit, data completeness, growth-signal capping, maturity, tier boundaries, the human-readable rationale), including a couple of "obviously right" cases (perfect match → 100/Hot) and a couple of edge cases (no ICP set → neutral credit, zero-data lead → Cold).
+- **`ai.test.ts`** — the outreach template fallback (used whenever `ANTHROPIC_API_KEY` isn't set), including a regression test for a grammar bug caught during manual testing ("has been press mention recently").
+- **`parse-filters.test.ts`** — query-string parsing (comma lists, numeric coercion, trailing commas).
+- **`format.test.ts`** — currency/number display formatting.
+- **`leads-repo.test.ts`** — integration tests against the real seeded SQLite database: filtering, full-text search, pagination boundaries, sorting, and the save/unsave round trip (with cleanup so tests don't leave state behind).
+
+Not covered: the real Claude API call path in `ai.ts` (would need a live key or a mocked HTTP layer — the deterministic fallback it degrades to is what's tested) and the API route handlers themselves (thin wrappers over the tested `leads-repo`/`scoring`/`ai` functions, verified manually against a running server instead — see the video walkthrough).
 
 ## Project structure
 
