@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { dataCompletenessScore } from "./scoring";
 
 // SQLite (file-based, embedded) is used for this local/demo deployment: zero
 // external services to stand up, single-digit-ms reads for a ~300-row table,
@@ -9,7 +10,16 @@ import path from "node:path";
 // migration path) since serverless function instances don't share a
 // filesystem — but the repository/query layer below is written so swapping
 // the driver later doesn't touch calling code.
-const DB_PATH = path.join(process.cwd(), "data", "app.db");
+// On Vercel (and most serverless hosts) everything except /tmp is a
+// read-only deployment bundle — writing to a path under process.cwd() would
+// throw on first request. /tmp is writable but ephemeral: not guaranteed to
+// survive a cold start or be shared across concurrent instances, so the
+// "Saved to pipeline" feature's persistence isn't reliable there (the leads
+// dataset itself is fine either way, since it's deterministically reseeded
+// from the bundled CSV each time). See README "Data storage" for the real
+// fix (a hosted Postgres) if that matters for your deployment.
+const DB_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
+const DB_PATH = path.join(DB_DIR, "app.db");
 const CSV_PATH = path.join(process.cwd(), "data", "leads.csv");
 
 let db: Database.Database | null = null;
@@ -38,6 +48,57 @@ function parseCsv(text: string): Record<string, string>[] {
     const row: Record<string, string> = {};
     headers.forEach((h, i) => (row[h] = values[i] ?? ""));
     return row;
+  });
+}
+
+function normalizeDomain(website: string): string {
+  return website
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/$/, "");
+}
+
+/**
+ * Seed-time dedup: the synthetic generator (scripts/generate-dataset.mjs)
+ * draws company name parts from a small combinatorial space, so the same
+ * company (same website/domain) can legitimately be generated more than
+ * once — data/leads.csv currently has 34 such groups. Rows without a
+ * website aren't deduped against each other, since an empty domain isn't a
+ * real matching key. On conflict, the row with the higher data-completeness
+ * score wins — the same signal scoring.ts uses for its own data-completeness
+ * sub-score, so "more complete" means the same thing here as it does in the
+ * score a user sees on the lead. Ties keep whichever row was encountered
+ * first, for determinism.
+ */
+function rowCompleteness(row: Record<string, string>): number {
+  // dataCompletenessScore wants named properties (it's also called with a
+  // full Lead), not an arbitrary string-keyed record, so pick the four
+  // fields out explicitly rather than passing the CSV row straight through.
+  return dataCompletenessScore({
+    website: row.website ?? "",
+    phone: row.phone ?? "",
+    contact_email: row.contact_email ?? "",
+    linkedin_url: row.linkedin_url ?? "",
+  });
+}
+
+export function dedupeByDomain(rows: Record<string, string>[]): Record<string, string>[] {
+  const bestByDomain = new Map<string, Record<string, string>>();
+
+  for (const row of rows) {
+    const domain = normalizeDomain(row.website ?? "");
+    if (!domain) continue;
+    const existing = bestByDomain.get(domain);
+    if (!existing || rowCompleteness(row) > rowCompleteness(existing)) {
+      bestByDomain.set(domain, row);
+    }
+  }
+
+  return rows.filter((row) => {
+    const domain = normalizeDomain(row.website ?? "");
+    return !domain || bestByDomain.get(domain) === row;
   });
 }
 
@@ -74,7 +135,7 @@ function seed(database: Database.Database) {
   const { count } = database.prepare("SELECT COUNT(*) as count FROM leads").get() as { count: number };
   if (count > 0) return;
 
-  const rows = parseCsv(readFileSync(CSV_PATH, "utf-8"));
+  const rows = dedupeByDomain(parseCsv(readFileSync(CSV_PATH, "utf-8")));
   const insert = database.prepare(`
     INSERT INTO leads (id, company_name, industry, sub_industry, city, state, website, phone,
       contact_email, employee_count, estimated_revenue, founded_year, linkedin_url,

@@ -18,6 +18,23 @@ function closenessToRange(value: number, min?: number, max?: number): number {
   return Math.max(0, 1 - dist / (span * 1.5));
 }
 
+type ContactFields = Pick<Lead, "website" | "phone" | "contact_email" | "linkedin_url">;
+
+/**
+ * The data-completeness sub-score (max 15): also reused by db.ts's seed-time
+ * dedup step to decide which row wins when two CSV rows share a domain, so
+ * "more complete" means the same thing there as it does in the score a user
+ * sees on the lead.
+ */
+export function dataCompletenessScore(lead: ContactFields): number {
+  let score = 0;
+  if (lead.website) score += 5;
+  if (lead.phone) score += 5;
+  if (lead.contact_email) score += 3;
+  if (lead.linkedin_url) score += 2;
+  return score;
+}
+
 export function scoreLead(lead: Lead, icp: IcpFilters): ScoredLead {
   const industryFit =
     !icp.industries?.length || icp.industries.includes(lead.industry)
@@ -29,11 +46,7 @@ export function scoreLead(lead: Lead, icp: IcpFilters): ScoredLead {
   const revenueFit = Math.round(20 * closenessToRange(lead.estimated_revenue, icp.minRevenue, icp.maxRevenue));
   const employeeFit = Math.round(15 * closenessToRange(lead.employee_count, icp.minEmployees, icp.maxEmployees));
 
-  let dataCompleteness = 0;
-  if (lead.website) dataCompleteness += 5;
-  if (lead.phone) dataCompleteness += 5;
-  if (lead.contact_email) dataCompleteness += 3;
-  if (lead.linkedin_url) dataCompleteness += 2;
+  const dataCompleteness = dataCompletenessScore(lead);
 
   const growthSignalList = lead.growth_signals ? lead.growth_signals.split(";").filter(Boolean) : [];
   const growthSignals = Math.min(15, growthSignalList.length * 5);
