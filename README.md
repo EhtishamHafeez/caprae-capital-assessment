@@ -26,7 +26,7 @@ Every AI feature degrades to a deterministic fallback with no API key configured
 
 ## Screenshots
 
-_Placeholders — replace with real captures before submitting (see suggested shot list below)._
+Captured against the live deployment, real Claude output included (not the template fallback).
 
 | | |
 |---|---|
