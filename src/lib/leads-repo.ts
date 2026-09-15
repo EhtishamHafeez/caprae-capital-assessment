@@ -35,7 +35,18 @@ function fetchAll(industries?: string[], states?: string[], q?: string): Lead[] 
 export function queryLeads(filters: IcpFilters): LeadsResult {
   const cacheKey = JSON.stringify(filters);
   return cachedQuery(cacheKey, () => {
-    const raw = fetchAll(filters.industries, filters.states, filters.q?.trim());
+    let raw = fetchAll(filters.industries, filters.states, filters.q?.trim());
+
+    // Revenue/employee bounds are hard cutoffs, not just a scoring hint —
+    // a lead below a stated "$5M+" floor must not appear just because it
+    // scored well on other dimensions. (scoreLead's closeness-to-range
+    // credit still runs on the filtered set below, rewarding how centered
+    // a lead is within the range rather than whether it qualifies at all.)
+    if (filters.minRevenue != null) raw = raw.filter((l) => l.estimated_revenue >= filters.minRevenue!);
+    if (filters.maxRevenue != null) raw = raw.filter((l) => l.estimated_revenue <= filters.maxRevenue!);
+    if (filters.minEmployees != null) raw = raw.filter((l) => l.employee_count >= filters.minEmployees!);
+    if (filters.maxEmployees != null) raw = raw.filter((l) => l.employee_count <= filters.maxEmployees!);
+
     let scored = raw.map((lead) => scoreLead(lead, filters));
 
     if (filters.minScore != null) scored = scored.filter((l) => l.score >= filters.minScore!);

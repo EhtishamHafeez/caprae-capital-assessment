@@ -59,6 +59,30 @@ describe("queryLeads", () => {
     const { leads } = queryLeads({ minScore: 90, pageSize: 1000 });
     expect(leads.every((l) => l.score >= 90)).toBe(true);
   });
+
+  // Regression: minRevenue/maxRevenue/minEmployees/maxEmployees were only
+  // ever used as a soft scoring signal (closeness-to-range credit), never
+  // as an actual cutoff — a lead well under a stated "$5M+" floor could
+  // still appear if it scored well on other dimensions, which is exactly
+  // the mismatch a user reported seeing live (leads at $4.5M/$4.8M showing
+  // up under an $5M+ filter).
+  it("excludes every lead below minRevenue, regardless of how well it scores otherwise", () => {
+    const { leads } = queryLeads({ minRevenue: 5_000_000, pageSize: 1000 });
+    expect(leads.length).toBeGreaterThan(0);
+    expect(leads.every((l) => l.estimated_revenue >= 5_000_000)).toBe(true);
+  });
+
+  it("excludes every lead above maxRevenue", () => {
+    const { leads } = queryLeads({ maxRevenue: 2_000_000, pageSize: 1000 });
+    expect(leads.length).toBeGreaterThan(0);
+    expect(leads.every((l) => l.estimated_revenue <= 2_000_000)).toBe(true);
+  });
+
+  it("excludes every lead outside an employee-count range", () => {
+    const { leads } = queryLeads({ minEmployees: 50, maxEmployees: 100, pageSize: 1000 });
+    expect(leads.length).toBeGreaterThan(0);
+    expect(leads.every((l) => l.employee_count >= 50 && l.employee_count <= 100)).toBe(true);
+  });
 });
 
 describe("getLeadById", () => {
