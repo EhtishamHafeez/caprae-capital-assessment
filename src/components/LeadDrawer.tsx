@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { IcpFilters, ScoredLead } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { serializeFilters } from "@/lib/parse-filters";
+import { useCrmWebhookUrl } from "@/lib/use-crm-webhook";
 import { ScoreBadge } from "./ScoreBadge";
 
 interface Props {
@@ -35,6 +36,13 @@ export function LeadDrawer({ lead, saved, onToggleSave, onClose, icpFilters }: P
   const [insightSource, setInsightSource] = useState<"ai" | "template" | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError] = useState<string | null>(null);
+
+  const { webhookUrl, setWebhookUrl } = useCrmWebhookUrl();
+  const [webhookInput, setWebhookInput] = useState("");
+  const [webhookInputError, setWebhookInputError] = useState<string | null>(null);
+  const [crmSending, setCrmSending] = useState(false);
+  const [crmResult, setCrmResult] = useState<"success" | "error" | null>(null);
+  const [crmError, setCrmError] = useState<string | null>(null);
 
   async function generate() {
     setLoading(true);
@@ -82,6 +90,43 @@ export function LeadDrawer({ lead, saved, onToggleSave, onClose, icpFilters }: P
     await navigator.clipboard.writeText(email);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function saveWebhook() {
+    const trimmed = webhookInput.trim();
+    try {
+      const url = new URL(trimmed);
+      if (url.protocol !== "https:") throw new Error("not https");
+    } catch {
+      setWebhookInputError("Enter a valid https:// webhook URL.");
+      return;
+    }
+    setWebhookInputError(null);
+    setWebhookUrl(trimmed);
+  }
+
+  async function sendToCrm() {
+    setCrmSending(true);
+    setCrmResult(null);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/crm-send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCrmResult("error");
+        setCrmError(data?.error?.message ?? "Couldn't send this lead.");
+        return;
+      }
+      setCrmResult("success");
+    } catch {
+      setCrmResult("error");
+      setCrmError("Network error — please try again.");
+    } finally {
+      setCrmSending(false);
+    }
   }
 
   return (
@@ -225,6 +270,54 @@ export function LeadDrawer({ lead, saved, onToggleSave, onClose, icpFilters }: P
                 className="w-full rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700"
               />
             </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-slate-200 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">Send to CRM</h3>
+          {!webhookUrl ? (
+            <>
+              <p className="mb-2 text-xs text-slate-500">
+                Paste a webhook URL once (Zapier, Make, n8n, or any CRM&rsquo;s inbound webhook) — every lead can be sent there with one click after that.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={webhookInput}
+                  onChange={(e) => { setWebhookInput(e.target.value); setWebhookInputError(null); }}
+                  onKeyDown={(e) => e.key === "Enter" && saveWebhook()}
+                  placeholder="https://hooks.zapier.com/…"
+                  className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
+                />
+                <button
+                  onClick={saveWebhook}
+                  className="shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                  Save
+                </button>
+              </div>
+              {webhookInputError && <p className="mt-1.5 text-xs text-red-600">{webhookInputError}</p>}
+            </>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="truncate text-xs text-slate-500" title={webhookUrl}>{webhookUrl}</span>
+                <button
+                  onClick={() => { setWebhookUrl(""); setCrmResult(null); }}
+                  className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800"
+                >
+                  Change
+                </button>
+              </div>
+              <button
+                onClick={sendToCrm}
+                disabled={crmSending}
+                className="w-full rounded-md bg-slate-900 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                {crmSending ? "Sending…" : "Send this lead to CRM"}
+              </button>
+              {crmResult === "success" && <p className="mt-2 text-xs text-emerald-600">Sent to your webhook.</p>}
+              {crmResult === "error" && <p className="mt-2 text-xs text-red-600">{crmError}</p>}
+            </>
           )}
         </div>
       </div>
