@@ -18,7 +18,7 @@ export function AiExplanationBanner({
           className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
             source === "ai" ? "bg-violet-600 text-white" : "bg-violet-200 text-violet-800"
           }`}
-          title={source === "ai" ? "Parsed by Claude" : "Parsed by keyword/regex fallback (no ANTHROPIC_API_KEY set)"}
+          title={source === "ai" ? "Parsed by Claude" : "Parsed by keyword/regex fallback (AI unavailable)"}
         >
           {source === "ai" ? "Claude" : "heuristic"}
         </span>

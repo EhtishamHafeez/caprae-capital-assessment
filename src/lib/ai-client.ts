@@ -16,7 +16,7 @@ export function getAnthropicClient(): Anthropic | null {
   return client;
 }
 
-export const CLAUDE_MODEL = "claude-sonnet-4-5";
+export const CLAUDE_MODEL = "claude-sonnet-5";
 
 /** Anthropic calls get 12s to complete before we fall back — keeps a slow/down API from hanging a request. */
 export const AI_TIMEOUT_MS = 12_000;

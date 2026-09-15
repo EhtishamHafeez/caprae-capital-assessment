@@ -63,7 +63,8 @@ export async function generateLeadInsight(lead: ScoredLead): Promise<LeadInsight
     if (!text) throw new Error("empty AI response");
     insightCache.set(cacheKey, text);
     return { insight: text, source: "ai" };
-  } catch {
+  } catch (err) {
+    console.error("generateLeadInsight: falling back to template", err);
     return { insight: fallbackInsight(lead), source: "template" };
   }
 }

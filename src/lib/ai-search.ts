@@ -230,7 +230,8 @@ export async function parseNaturalLanguageQuery(query: string, meta: SearchMeta)
       explanation: typeof explanation === "string" ? explanation : "Filters applied.",
       source: "ai",
     };
-  } catch {
+  } catch (err) {
+    console.error("parseNaturalLanguageQuery: falling back to heuristic parser", err);
     return heuristicParse(query, meta);
   }
 }

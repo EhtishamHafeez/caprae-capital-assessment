@@ -83,7 +83,12 @@ export async function generateOutreachEmail(
     if (!text) throw new Error("empty AI response");
     outreachCache.set(cacheKey, text);
     return { email: text, source: "ai" };
-  } catch {
+  } catch (err) {
+    // Logged (not swallowed silently) so a misconfigured key/model/timeout
+    // shows up in server logs instead of just quietly degrading forever —
+    // this exact class of bug (a stale model id) previously went unnoticed
+    // because the catch block had no observability at all.
+    console.error("generateOutreachEmail: falling back to template", err);
     return { email: fallbackEmail(lead, senderName, senderCompany), source: "template" };
   }
 }
