@@ -2,7 +2,7 @@
 
 An enhancement built on top of the [SaaSquatch Leads](https://www.saasquatchleads.com/) concept for the Caprae Capital Full Stack Developer pre-work challenge — a lead-generation dashboard that layers **three AI-powered features** and a **transparent ICP-fit scoring engine** on top of the core scrape → enrich → save → export workflow.
 
-**Live demo:** _not yet deployed — will add the Vercel URL here once live._
+**Live demo:** [caprae-capital-gilt.vercel.app](https://caprae-capital-gilt.vercel.app)
 
 ## The problem this solves
 
@@ -71,7 +71,7 @@ Designed to deploy as:
 - `next.config.ts` marks `better-sqlite3` as a `serverExternalPackage` — without it, Next's bundler can't handle the compiled native binary and Vercel's function tracer won't include it in the deployed bundle, so the deployed function fails at runtime even though `next build` succeeds locally.
 - `db.ts` writes to `/tmp` instead of a path under the deployment bundle when `process.env.VERCEL` is set, since everywhere else in the bundle is read-only at runtime. This keeps the app from crashing, but `/tmp` is ephemeral: **the "Saved to pipeline" feature's persistence isn't reliable across cold starts or concurrent instances on Vercel's default serverless tier.** The leads dataset itself (search/filter/score/export) is unaffected, since it's deterministically reseeded from the bundled CSV every time. Real persistence for saved leads needs the Postgres migration described above — this is a known, documented limitation of this deployment, not a hidden bug.
 
-No live cloud deployment or third-party accounts (Vercel/Neon/Upstash) were created for this submission — the app runs fully locally per the setup instructions below, and the video walkthrough demonstrates it running.
+Deployed live on Vercel — see **Live demo** above. No Neon/Upstash (Postgres/Redis) account was created; the live deployment runs on the SQLite + in-memory setup described here, with the persistence caveat noted above. The app also runs fully locally per the setup instructions below.
 
 ## Design decisions
 
