@@ -22,3 +22,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Tailwind's preflight doesn't set this, and the browser default for
+   <button> is the plain arrow cursor, not a pointer — a very common gotcha.
+   Applied globally instead of a cursor-pointer class on every button in the
+   app. Disabled buttons get the "unavailable" cursor instead, matching their
+   actual non-interactive state (pagination at the last page, in-flight AI
+   requests, etc.). */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
